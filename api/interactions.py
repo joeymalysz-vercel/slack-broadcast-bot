@@ -116,9 +116,8 @@ class handler(BaseHTTPRequestHandler):
             self._send_json({})
             return
 
-        # ---- Draft submitted -> show review modal (NO REDIS HERE) ----
+        # ---- Draft submitted -> show review modal ----
         if ptype == "view_submission" and (payload.get("view") or {}).get("callback_id") == "broadcast_draft_submit":
-            # Channel count check can stay (fast), but if you want max speed you can remove it.
             channel_count = get_channel_count()
             if channel_count == 0:
                 self._send_json({"response_action": "errors", "errors": {"body_block": "No tracked channels yet. Invite the bot to a channel first."}})
@@ -142,12 +141,19 @@ class handler(BaseHTTPRequestHandler):
                 link=draft["link"],
             )
 
-            # Put draft directly into private_metadata so we don't depend on KV at review time
             private_metadata = json.dumps({"user_id": user_id, "draft": draft})
+
+            # ✅ DEBUG: print the exact modal JSON Slack is validating
+            review_view = review_modal_view(
+                private_metadata=private_metadata,
+                preview_blocks=preview,
+                channel_count=channel_count,
+            )
+            print("REVIEW_VIEW_JSON:", json.dumps(review_view))
 
             self._send_json({
                 "response_action": "update",
-                "view": review_modal_view(private_metadata=private_metadata, preview_blocks=preview, channel_count=channel_count),
+                "view": review_view,
             })
             return
 
@@ -215,9 +221,7 @@ class handler(BaseHTTPRequestHandler):
                         "type": "modal",
                         "title": {"type": "plain_text", "text": "Sending ✅"},
                         "close": {"type": "plain_text", "text": "Close"},
-                        "blocks": [
-                            {"type": "section", "text": {"type": "mrkdwn", "text": "Broadcast started. I’ll DM you when it finishes."}},
-                        ],
+                        "blocks": [{"type": "section", "text": {"type": "mrkdwn", "text": "Broadcast started. I’ll DM you when it finishes."}}],
                     },
                 )
 
