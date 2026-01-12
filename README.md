@@ -1,55 +1,107 @@
-# Slack Broadcast Bot
+# Slack Alert Bot
 
-A Slack bot that broadcasts a message to every Slack channel it has been added to.
+A Slack-native broadcast tool for sending important updates to all partner Slack channels the bot is added to — safely, reliably, and at scale.
 
-Built for Vercel serverless and Vercel KV (Upstash Redis).
+Built for **Vercel**, designed for **Slack Connect**, and optimized to avoid Slack API rate limits.
 
-## What it does
+---
 
-- Tracks channel membership automatically:
-  - Stores a channel ID when the bot joins a channel
-  - Removes the channel ID when the bot leaves a channel
-- Broadcasts messages via `/partner_broadcast`
-- Includes guardrails:
-  - Preview → confirm flow
-  - Optional allowlist of broadcasters
-  - Rate limit handling and throttling
-  - Safety cap on number of channels per broadcast
+## What this does
 
-## Architecture
+Slack Alert Bot allows authorized users to:
 
-- `api/slack.py` — Slash command handler (`/partner_broadcast`)
-- `api/events.py` — Slack Events API handler (join/leave tracking)
-- `api/_redis.py` — Vercel KV helper (REST-based Upstash client)
+- Draft a message once
+- Review exactly how it will appear to partners
+- Send it to **every partner channel** the bot is a member of
 
-## Environment Variables
+The bot automatically tracks which channels it belongs to and **only sends messages to active channels**, ensuring accuracy and preventing delivery errors.
 
-Required:
+---
 
-- `SLACK_BOT_TOKEN`
-- `SLACK_SIGNING_SECRET`
-- `SLACK_BOT_USER_ID`
-- `STORAGE_KV_REST_API_URL`
-- `STORAGE_KV_REST_API_TOKEN`
+## Key features
 
-Optional:
+### Slack-native workflow
+- `/partner_broadcast` opens a **Draft modal**
+- Submit → **Review modal** with real preview
+- Click **Send** → broadcast starts immediately
+- Sender receives a **DM summary** when delivery completes
 
-- `ALLOWED_BROADCASTERS` (comma-separated user IDs)
-- `MAX_BROADCAST_CHANNELS` (default: 500)
-- `POST_THROTTLE_SECONDS` (default: 0.2)
-- `BROADCAST_COOLDOWN_SECONDS` (default: 0)
+No “CONFIRM:” commands, no brittle text flows.
 
-## Deploy
+---
 
-1. Push to GitHub
-2. Create a Vercel project from the repo
-3. Add env vars in Vercel Project Settings
-4. Deploy
+### Automatic channel tracking
+- Uses Slack **Event Subscriptions**
+- When the bot is added to a channel → channel ID is stored
+- When removed → channel is automatically removed
+- No polling, no manual lists, no drift
 
-## Slack App Configuration
+---
 
-- Slash Command `/partner_broadcast` → `https://<vercel-domain>/api/slack`
-- Event Subscriptions Request URL → `https://<vercel-domain>/api/events`
-- Bot events subscribed:
-  - `member_joined_channel`
-  - `member_left_channel`
+### Safe by default
+- Preview before send
+- Optional allowlist of approved broadcasters
+- Optional per-user cooldown
+- Hard cap on number of channels per broadcast
+- Rate-limit aware delivery (`Retry-After` respected)
+
+---
+
+### Optimized for scale (and cost)
+- No `conversations.list`
+- No cron jobs
+- No background workers running idle
+- No unnecessary Slack API calls
+- Uses **Vercel KV (Upstash Redis)** for lightweight state
+
+Broadcast work is triggered **on demand only**.
+
+---
+
+## Architecture overview
+
+Slack
+├─ Slash Command → /api/slack
+├─ Modal Interactions → /api/interactions
+├─ Channel Join/Leave Events → /api/events
+└─ Message Delivery → /api/worker (on-demand)
+
+Vercel
+├─ Serverless Functions
+├─ Vercel KV (Redis)
+└─ No always-on processes
+
+---
+
+## Tech stack
+
+- **Slack APIs**
+  - Slash Commands
+  - Block Kit (modals + messages)
+  - Event Subscriptions
+- **Vercel**
+  - Serverless Functions
+  - Vercel KV (Upstash Redis)
+- **Python**
+  - `slack_sdk`
+  - `upstash-redis`
+
+---
+
+## Required environment variables
+
+```env
+SLACK_BOT_TOKEN=...
+SLACK_SIGNING_SECRET=...
+SLACK_BOT_USER_ID=U...
+
+KV_REST_API_URL=...
+KV_REST_API_TOKEN=...
+
+PUBLIC_BASE_URL=https://<your-vercel-domain>
+WORKER_SECRET=<random-string>
+
+ALLOWED_BROADCASTERS= <slack-user-id>
+MAX_BROADCAST_CHANNELS=500
+POST_THROTTLE_SECONDS=0.2
+BROADCAST_COOLDOWN_SECONDS=0
