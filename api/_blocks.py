@@ -10,11 +10,25 @@ def build_broadcast_blocks(
     sender_name: str,
     link: Optional[str],
 ) -> List[Dict[str, Any]]:
+    """
+    Builds the final Block Kit message that partners receive.
+    Fully Slack-compliant.
+    """
+
+    # Sanitize inputs to avoid Slack validation errors
+    safe_title = " ".join((title or "").split())
+    safe_category = " ".join((category or "").split())
+
+    header_text = f"{safe_category}: {safe_title}".strip(": ").strip()
+    header_text = header_text[:150]  # Slack header max length
+
     ts = datetime.now(timezone.utc).strftime("%b %d, %Y • %H:%M UTC")
-    header_text = f"{category}: {title}".strip(": ")
 
     blocks: List[Dict[str, Any]] = [
-        {"type": "header", "text": {"type": "plain_text", "text": header_text[:150]}},
+        {
+            "type": "header",
+            "text": {"type": "plain_text", "text": header_text},
+        },
         {
             "type": "context",
             "elements": [
@@ -23,7 +37,10 @@ def build_broadcast_blocks(
             ],
         },
         {"type": "divider"},
-        {"type": "section", "text": {"type": "mrkdwn", "text": body}},
+        {
+            "type": "section",
+            "text": {"type": "mrkdwn", "text": body[:3000]},
+        },
     ]
 
     if link:
@@ -46,8 +63,9 @@ def build_broadcast_blocks(
 
 def draft_modal_view(private_metadata: str) -> Dict[str, Any]:
     """
-    Draft modal shown when user runs /partner_broadcast
+    Draft modal opened by /partner_broadcast
     """
+
     return {
         "type": "modal",
         "callback_id": "broadcast_draft_submit",
@@ -60,7 +78,11 @@ def draft_modal_view(private_metadata: str) -> Dict[str, Any]:
                 "type": "input",
                 "block_id": "title_block",
                 "label": {"type": "plain_text", "text": "Title"},
-                "element": {"type": "plain_text_input", "action_id": "title_input", "max_length": 120},
+                "element": {
+                    "type": "plain_text_input",
+                    "action_id": "title_input",
+                    "max_length": 120,
+                },
                 "optional": True,
             },
             {
@@ -76,36 +98,54 @@ def draft_modal_view(private_metadata: str) -> Dict[str, Any]:
                         {"text": {"type": "plain_text", "text": "Action required"}, "value": "Action required"},
                         {"text": {"type": "plain_text", "text": "FYI"}, "value": "FYI"},
                     ],
-                    "initial_option": {"text": {"type": "plain_text", "text": "Release"}, "value": "Release"},
+                    "initial_option": {
+                        "text": {"type": "plain_text", "text": "Release"},
+                        "value": "Release",
+                    },
                 },
             },
             {
                 "type": "input",
                 "block_id": "body_block",
                 "label": {"type": "plain_text", "text": "Message"},
-                "element": {"type": "plain_text_input", "action_id": "body_input", "multiline": True},
+                "element": {
+                    "type": "plain_text_input",
+                    "action_id": "body_input",
+                    "multiline": True,
+                },
             },
             {
                 "type": "input",
                 "block_id": "link_block",
                 "label": {"type": "plain_text", "text": "Optional link"},
-                "element": {"type": "plain_text_input", "action_id": "link_input"},
+                "element": {
+                    "type": "plain_text_input",
+                    "action_id": "link_input",
+                },
                 "optional": True,
             },
             {
                 "type": "context",
                 "elements": [
-                    {"type": "mrkdwn", "text": "Next: you’ll review exactly what partners will see before sending."}
+                    {
+                        "type": "mrkdwn",
+                        "text": "Next: you’ll review exactly what partners will see before sending.",
+                    }
                 ],
             },
         ],
     }
 
 
-def review_modal_view(private_metadata: str, preview_blocks: List[Dict[str, Any]], channel_count: int) -> Dict[str, Any]:
+def review_modal_view(
+    private_metadata: str,
+    preview_blocks: List[Dict[str, Any]],
+    channel_count: int,
+) -> Dict[str, Any]:
     """
-    Review modal shown after Draft is submitted; includes Edit + Send buttons.
+    Review modal shown after Draft → Review.
     """
+
     return {
         "type": "modal",
         "callback_id": "broadcast_review",
@@ -115,7 +155,10 @@ def review_modal_view(private_metadata: str, preview_blocks: List[Dict[str, Any]
         "blocks": [
             {
                 "type": "section",
-                "text": {"type": "mrkdwn", "text": f"*Ready to send to* *{channel_count}* *channel(s).*"},
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"*Ready to send to* *{channel_count}* *channel(s).*",
+                },
             },
             {"type": "divider"},
             *preview_blocks,
@@ -127,7 +170,7 @@ def review_modal_view(private_metadata: str, preview_blocks: List[Dict[str, Any]
                         "type": "button",
                         "action_id": "edit_draft",
                         "text": {"type": "plain_text", "text": "Edit"},
-                        "style": "secondary",
+                        # no style — default button
                     },
                     {
                         "type": "button",
