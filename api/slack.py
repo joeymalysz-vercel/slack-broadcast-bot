@@ -13,20 +13,22 @@ from api._blocks import draft_modal_view
 SLACK_SIGNING_SECRET = os.environ["SLACK_SIGNING_SECRET"].encode("utf-8")
 SLACK_BOT_TOKEN = os.environ["SLACK_BOT_TOKEN"]
 
-# Optional authorization list (comma-separated user IDs)
-ALLOWED_BROADCASTERS = {
-    uid.strip() for uid in (os.environ.get("ALLOWED_BROADCASTERS") or "").split(",") if uid.strip()
-}
-
 redis = get_redis()
 client = WebClient(token=SLACK_BOT_TOKEN)
 
 CHANNEL_SET_KEY = "partner_alert_bot:channels"
+ALLOWED_BROADCASTERS_KEY = "partner_alert_bot:allowed_broadcasters"
 
 
 def user_allowed(user_id: str) -> bool:
-    # If no allowlist is set, allow anyone (for now)
-    return True if not ALLOWED_BROADCASTERS else user_id in ALLOWED_BROADCASTERS
+    try:
+        allowed_users = redis.smembers(ALLOWED_BROADCASTERS_KEY)
+        # If no allowlist is set in Redis, allow anyone (for backward compatibility)
+        return True if not allowed_users else user_id in allowed_users
+    except Exception as e:
+        # If Redis fails, log error and allow access (fail open for availability)
+        print(f"Error checking allowed broadcasters: {e}")
+        return True
 
 
 class handler(BaseHTTPRequestHandler):
