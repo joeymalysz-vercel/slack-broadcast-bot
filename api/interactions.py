@@ -14,12 +14,6 @@ from api._blocks import build_broadcast_blocks, draft_modal_view, review_modal_v
 SLACK_SIGNING_SECRET = os.environ["SLACK_SIGNING_SECRET"].encode("utf-8")
 SLACK_BOT_TOKEN = os.environ["SLACK_BOT_TOKEN"]
 
-ALLOWED_BROADCASTERS = {
-    uid.strip()
-    for uid in (os.environ.get("ALLOWED_BROADCASTERS") or "").split(",")
-    if uid.strip()
-}
-
 MAX_BROADCAST_CHANNELS = int(os.environ.get("MAX_BROADCAST_CHANNELS", "500"))
 BROADCAST_COOLDOWN_SECONDS = int(os.environ.get("BROADCAST_COOLDOWN_SECONDS", "0"))
 
@@ -31,10 +25,18 @@ client = WebClient(token=SLACK_BOT_TOKEN)
 
 CHANNEL_SET_KEY = "partner_alert_bot:channels"
 JOB_LIST_KEY = "partner_alert_bot:jobs"
+ALLOWED_BROADCASTERS_KEY = "partner_alert_bot:allowed_broadcasters"
 
 
 def user_allowed(user_id: str) -> bool:
-    return True if not ALLOWED_BROADCASTERS else user_id in ALLOWED_BROADCASTERS
+    try:
+        allowed_users = redis.smembers(ALLOWED_BROADCASTERS_KEY)
+        # If no allowlist is set in Redis, allow anyone (for backward compatibility)
+        return True if not allowed_users else user_id in allowed_users
+    except Exception as e:
+        # If Redis fails, log error and allow access (fail open for availability)
+        print(f"Error checking allowed broadcasters: {e}")
+        return True
 
 
 def cooldown_key(user_id: str) -> str:

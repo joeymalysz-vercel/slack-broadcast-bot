@@ -101,7 +101,43 @@ KV_REST_API_TOKEN=...
 PUBLIC_BASE_URL=https://<your-vercel-domain>
 WORKER_SECRET=<random-string>
 
-ALLOWED_BROADCASTERS= <slack-user-id>
 MAX_BROADCAST_CHANNELS=500
 POST_THROTTLE_SECONDS=0.2
 BROADCAST_COOLDOWN_SECONDS=0
+```
+
+## Managing Allowed Broadcasters
+
+User authorization is now managed via Redis instead of environment variables. This allows for dynamic management of who can use the broadcast functionality.
+
+### Adding allowed broadcasters
+
+To add users who can use the broadcast functionality, use Redis SET commands:
+
+```bash
+# Add a single user
+SADD partner_alert_bot:allowed_broadcasters U1234567890
+
+# Add multiple users at once
+SADD partner_alert_bot:allowed_broadcasters U1234567890 U0987654321 U1122334455
+```
+
+### Removing allowed broadcasters
+
+```bash
+# Remove a single user
+SREM partner_alert_bot:allowed_broadcasters U1234567890
+```
+
+### Viewing current allowed broadcasters
+
+```bash
+# List all allowed broadcasters
+SMEMBERS partner_alert_bot:allowed_broadcasters
+```
+
+### Default behavior
+
+- If no users are configured in Redis (`partner_alert_bot:allowed_broadcasters` key is empty or doesn't exist), **all users** are allowed to broadcast (for backward compatibility)
+- If Redis is unavailable, the system fails open and allows all users to broadcast (for availability)
+- User IDs should be Slack user IDs (format: `U1234567890`)
