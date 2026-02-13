@@ -34,7 +34,7 @@ def _normalize_members(raw) -> list[str]:
 
 def _post_with_retry(channel: str, text: str, blocks):
     try:
-        client.chat_postMessage(channel=channel, text=text, blocks=blocks)
+        client.chat_postMessage(channel=channel, text=text, blocks=blocks, unfurl_links=False, unfurl_media=False)
         return True, None
     except SlackApiError as e:
         err = e.response.get("error")
@@ -46,7 +46,7 @@ def _post_with_retry(channel: str, text: str, blocks):
                 retry_after = 1
             time.sleep(retry_after + 1)
             try:
-                client.chat_postMessage(channel=channel, text=text, blocks=blocks)
+                client.chat_postMessage(channel=channel, text=text, blocks=blocks, unfurl_links=False, unfurl_media=False)
                 return True, None
             except SlackApiError as e2:
                 return False, e2.response.get("error") or "ratelimited"
